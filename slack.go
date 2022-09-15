@@ -16,21 +16,21 @@ const (
 	envSlackBotName    = "SLACK_BOT_NAME"
 )
 
-// SlackOptions contains the configuration for Slack.
-type SlackOptions struct {
+// Config contains the configuration for Slack.
+type Config struct {
 	slackWebhookURL string
 	slackChannel    string
 	botName         string
 }
 
 // Enabled returns true if the required configuration parameters have been provided for sending webhooks to Slack.
-func (o SlackOptions) Enabled() bool {
+func (o Config) Enabled() bool {
 	return o.slackWebhookURL != "" && o.slackChannel != ""
 }
 
-// AddSlackFlags adds the flags for slack to the command.
-func AddSlackFlags(cmd *cobra.Command, defaultBotName string) *SlackOptions {
-	var opts SlackOptions
+// AddFlags adds the flags for slack to the command.
+func AddFlags(cmd *cobra.Command, defaultBotName string) *Config {
+	var opts Config
 
 	cmd.Flags().StringVar(
 		&opts.slackWebhookURL,
@@ -57,7 +57,7 @@ func AddSlackFlags(cmd *cobra.Command, defaultBotName string) *SlackOptions {
 }
 
 // Send sends the message.
-func (o SlackOptions) Send(payload slack.Payload) error {
+func (o Config) Send(payload slack.Payload) error {
 	if !o.Enabled() {
 		return nil
 	}

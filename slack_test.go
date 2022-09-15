@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSlackUnconfigured(t *testing.T) {
-	opts := SlackOptions{}
+func TestUnconfigured(t *testing.T) {
+	opts := Config{}
 	err := opts.Send(slack.Payload{Text: "testing"})
 	require.NoError(t, err)
 }
