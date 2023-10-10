@@ -3,7 +3,7 @@ package notifications
 import (
 	"testing"
 
-	"github.com/ashwanthkumar/slack-go-webhook"
+	"github.com/jasonhancock/slack-go-webhook"
 	"github.com/stretchr/testify/require"
 )
 

@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ashwanthkumar/slack-go-webhook"
-	"github.com/hashicorp/go-multierror"
 	"github.com/jasonhancock/go-env"
+	"github.com/jasonhancock/slack-go-webhook"
 	"github.com/spf13/cobra"
 )
 
@@ -65,14 +64,8 @@ func (o Config) Send(payload slack.Payload) error {
 	payload.Channel = o.slackChannel
 
 	// Slack package returns a slice of errors. Convert into a multierror
-	var retErrs error
-	if errs := slack.Send(o.slackWebhookURL, "", payload); len(errs) > 0 {
-		for _, v := range errs {
-			retErrs = multierror.Append(retErrs, v)
-		}
-	}
-	if retErrs != nil {
-		return fmt.Errorf("sending slack notification: %w", retErrs)
+	if err := slack.Send(o.slackWebhookURL, "", payload); err != nil {
+		return fmt.Errorf("sending slack notification: %w", err)
 	}
 
 	return nil
