@@ -1,6 +1,7 @@
 package slack
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -20,6 +21,8 @@ type Config struct {
 	slackWebhookURL string
 	slackChannel    string
 	botName         string
+
+	webhookFetcher WebhookFetcher
 }
 
 // Enabled returns true if the required configuration parameters have been provided for sending webhooks to Slack.
@@ -28,31 +31,38 @@ func (o Config) Enabled() bool {
 }
 
 // AddFlags adds the flags for slack to the command.
-func AddFlags(cmd *cobra.Command, defaultBotName string) *Config {
-	var opts Config
+func AddFlags(cmd *cobra.Command, defaultBotName string, opts ...Option) *Config {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	conf := Config{
+		webhookFetcher: o.webhookFetcher,
+	}
 
 	cmd.Flags().StringVar(
-		&opts.slackWebhookURL,
+		&conf.slackWebhookURL,
 		"slack-webhook-url",
 		os.Getenv(envSlackWebhookURL),
 		"The Slack webhook URL. Can be set via "+envSlackWebhookURL+" environment variable.",
 	)
 
 	cmd.Flags().StringVar(
-		&opts.slackChannel,
+		&conf.slackChannel,
 		"slack-channel",
 		os.Getenv(envSlackChannel),
 		"The Slack channel to send to. Example: #my-channel. Can be set via "+envSlackChannel+" environment variable.",
 	)
 
 	cmd.Flags().StringVar(
-		&opts.botName,
+		&conf.botName,
 		"slack-bot-name",
 		env.String(envSlackBotName, defaultBotName),
 		"The Slack bot's name. Can be set via "+envSlackBotName+" environment variable.",
 	)
 
-	return &opts
+	return &conf
 }
 
 // Send sends the message.
@@ -70,3 +80,43 @@ func (o Config) Send(payload slack.Payload) error {
 
 	return nil
 }
+
+// Init initializes the config, only needs to be called if you're using a WebhookFetcher.
+func (o *Config) Init(ctx context.Context) error {
+	if o.webhookFetcher == nil {
+		return nil
+	}
+
+	// if the webhook url has been set or provided already, don't call the fetcher.
+	if o.slackWebhookURL != "" {
+		return nil
+	}
+
+	u, err := o.webhookFetcher(ctx)
+	if err != nil {
+		return err
+	}
+
+	o.slackWebhookURL = u
+	return nil
+}
+
+type options struct {
+	webhookFetcher WebhookFetcher
+}
+
+// Option is used to customize
+type Option func(*options)
+
+// WithWebhookFetcher sets a WebhookFetcher to use if the webhook URL isn't directly provided.
+func WithWebhookFetcher(fetcher WebhookFetcher) Option {
+	return func(o *options) {
+		o.webhookFetcher = fetcher
+	}
+}
+
+// WebhookFetcher allows you to fetch the webhook url from something like a
+// secret management system. It should return the webhook URL string, or an empty
+// string and an error. If you are using a WebhookFetcher, you need to manually call
+// Init so that your fetcher gets called and initializes the configuration.
+type WebhookFetcher func(ctx context.Context) (string, error)
