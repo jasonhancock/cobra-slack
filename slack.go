@@ -21,8 +21,6 @@ type Config struct {
 	slackWebhookURL string
 	slackChannel    string
 	botName         string
-
-	webhookFetcher WebhookFetcher
 }
 
 // Enabled returns true if the required configuration parameters have been provided for sending webhooks to Slack.
@@ -31,15 +29,9 @@ func (o Config) Enabled() bool {
 }
 
 // AddFlags adds the flags for slack to the command.
-func AddFlags(cmd *cobra.Command, defaultBotName string, opts ...Option) *Config {
-	var o options
-	for _, opt := range opts {
-		opt(&o)
-	}
+func AddFlags(cmd *cobra.Command, defaultBotName string) *Config {
 
-	conf := Config{
-		webhookFetcher: o.webhookFetcher,
-	}
+	var conf Config
 
 	cmd.Flags().StringVar(
 		&conf.slackWebhookURL,
@@ -66,15 +58,15 @@ func AddFlags(cmd *cobra.Command, defaultBotName string, opts ...Option) *Config
 }
 
 // Send sends the message.
-func (o Config) Send(payload slack.Payload) error {
-	if !o.Enabled() {
+func (c Config) Send(payload slack.Payload) error {
+	if !c.Enabled() {
 		return nil
 	}
-	payload.Username = o.botName
-	payload.Channel = o.slackChannel
+	payload.Username = c.botName
+	payload.Channel = c.slackChannel
 
 	// Slack package returns a slice of errors. Convert into a multierror
-	if err := slack.Send(o.slackWebhookURL, "", payload); err != nil {
+	if err := slack.Send(c.slackWebhookURL, "", payload); err != nil {
 		return fmt.Errorf("sending slack notification: %w", err)
 	}
 
@@ -82,13 +74,18 @@ func (o Config) Send(payload slack.Payload) error {
 }
 
 // Init initializes the config, only needs to be called if you're using a WebhookFetcher.
-func (o *Config) Init(ctx context.Context) error {
+func (c *Config) Init(ctx context.Context, opts ...InitOption) error {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	if o.webhookFetcher == nil {
 		return nil
 	}
 
 	// if the webhook url has been set or provided already, don't call the fetcher.
-	if o.slackWebhookURL != "" {
+	if c.slackWebhookURL != "" {
 		return nil
 	}
 
@@ -97,7 +94,7 @@ func (o *Config) Init(ctx context.Context) error {
 		return err
 	}
 
-	o.slackWebhookURL = u
+	c.slackWebhookURL = u
 	return nil
 }
 
@@ -105,11 +102,11 @@ type options struct {
 	webhookFetcher WebhookFetcher
 }
 
-// Option is used to customize
-type Option func(*options)
+// InitOption is used to customize the initialization of the config.
+type InitOption func(*options)
 
 // WithWebhookFetcher sets a WebhookFetcher to use if the webhook URL isn't directly provided.
-func WithWebhookFetcher(fetcher WebhookFetcher) Option {
+func WithWebhookFetcher(fetcher WebhookFetcher) InitOption {
 	return func(o *options) {
 		o.webhookFetcher = fetcher
 	}
